@@ -1,0 +1,17 @@
+Entrada: 1 | Saída desejada: 0
+#### Iteração: 1
+Peso: 0.5000
+Saída: 1
+Erro: -1
+Peso do bias: 0.5000
+#### Iteração: 50
+Peso: 0.0100
+Saída: 1
+Erro: -1
+Peso do bias: 0.0100
+#### Iteração: 51
+Peso: -0.0000
+Saída: 0
+Erro: 0
+✅ Parabéns! O neurônio aprendeu.
+Valor desejado: 0

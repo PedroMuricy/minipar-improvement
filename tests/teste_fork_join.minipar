@@ -1,0 +1,20 @@
+# Teste de Concorrencia Fork / Join nativa
+# MiniPar 2026.2
+
+func tarefa_a() {
+    print("-> Tarefa A executando em thread separada!");
+}
+
+func tarefa_b() {
+    print("-> Tarefa B executando em thread separada!");
+}
+
+print("=== Inicio do Teste Fork/Join ===");
+
+fork tarefa_a();
+fork tarefa_b();
+
+print("Tarefas disparadas com fork. Aguardando barreira join...");
+join;
+
+print("=== Sincronizacao concluida com sucesso! ===");

@@ -1,0 +1,30 @@
+# Teste 9: Paralelismo com 5 Cores (Fork/Join)
+# MiniPar 2026.2
+
+func worker_5(id, inicio, fim) {
+    var acc = 0;
+    var i = inicio;
+    while (i < fim) {
+        acc = acc + ((i % 5) * (i % 3));
+        i = i + 1;
+    }
+    print("Worker [", id, "] finalizou fatia ", inicio, " a ", fim, ". Subtotal: ", acc);
+}
+
+print("==================================================");
+print("TESTE 9: Execucao Paralela em 5 Cores (Fork/Join)");
+print("==================================================");
+
+print("Disparando 5 tarefas concorrentes...");
+
+fork worker_5(1, 0, 20000000);
+fork worker_5(2, 20000000, 40000000);
+fork worker_5(3, 40000000, 60000000);
+fork worker_5(4, 60000000, 80000000);
+fork worker_5(5, 80000000, 100000000);
+
+print("Sincronizando tarefas na barreira join...");
+join;
+
+print("Concluido: Todas as 5 threads finalizaram!");
+print("==================================================");

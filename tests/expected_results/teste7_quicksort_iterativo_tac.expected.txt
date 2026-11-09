@@ -1,0 +1,1 @@
+Array ordenado: [5, 12, 33, 61, 98]
