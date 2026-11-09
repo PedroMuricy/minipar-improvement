@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minipar IDE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Explorer</h2>
+            </div>
+            <ul id="test-list" class="test-list"></ul>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="file-info">
+                    <span id="current-file">ide_temp.minipar</span>
+                </div>
+                <div class="actions">
+                    <button id="btn-run" class="btn primary">▶ Compile &amp; Run</button>
+                    <button id="btn-clear" class="btn secondary">Clear</button>
+                </div>
+            </header>
+
+            <div class="editor-workspace">
+                <div class="editor-pane pane-left">
+                    <div class="pane-header">Source (Minipar)</div>
+                    <textarea id="editor-minipar"></textarea>
+                </div>
+
+                <div class="editor-pane pane-right">
+                    <div class="pane-tabs">
+                        <button class="tab active" data-target="out-cpp">C++ Output</button>
+                        <button class="tab" data-target="out-tac">TAC Output</button>
+                    </div>
+                    <div class="tab-content active" id="out-cpp">
+                        <textarea id="editor-cpp"></textarea>
+                    </div>
+                    <div class="tab-content" id="out-tac">
+                        <textarea id="editor-tac"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="terminal">
+                <div class="terminal-header">Terminal Output</div>
+                <pre id="terminal-output">Ready...</pre>
+            </footer>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
+    <script src="/static/js/script.js"></script>
+</body>
+</html>
