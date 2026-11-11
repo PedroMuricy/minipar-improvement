@@ -19,7 +19,10 @@ from test_orchestrator import (
     _save_session,
 )
 
+from didatico import didatico_bp
+
 app = Flask(__name__)
+app.register_blueprint(didatico_bp)
 
 # Configuração de Diretórios
 TESTS_DIR = 'tests'
