@@ -1,0 +1,7 @@
+# Escreva seu programa MiniPar aqui.
+# Você também pode carregar um exemplo na lista acima.
+
+seq {
+    var mensagem = "Olá, MINIPAR!";
+    print(mensagem);
+}

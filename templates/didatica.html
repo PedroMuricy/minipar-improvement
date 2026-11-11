@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MINIPAR 2026.2 — Interface Didática</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/didatica.css') }}">
+</head>
+<body>
+    <div class="didactic-app">
+        <header class="topbar">
+            <div class="brand">
+                <span class="brand-mark">M</span>
+                <div>
+                    <strong>MINIPAR <span>2026.2</span></strong>
+                    <small>Interface didática do compilador</small>
+                </div>
+            </div>
+            <nav class="top-actions" aria-label="Ações principais">
+                <a class="nav-link" href="/" title="Voltar para a interface original">Interface original</a>
+                <button id="btn-clear" class="button button-quiet" type="button">Limpar</button>
+                <button id="btn-compile" class="button button-primary" type="button">
+                    <span aria-hidden="true">▶</span> Compilar e executar
+                </button>
+            </nav>
+        </header>
+
+        <main class="workspace">
+            <section class="source-column panel">
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">ETAPA 01</span>
+                        <h1>Código-fonte</h1>
+                    </div>
+                    <span class="status-dot"><i></i> Editor</span>
+                </div>
+
+                <label class="field-label" for="example-select">Carregar programa de exemplo</label>
+                <select id="example-select" class="example-select">
+                    <option value="">Selecione um programa...</option>
+                </select>
+
+                <div class="editor-heading">
+                    <span>MINIPAR SOURCE CODE</span>
+                    <span id="current-file">novo_programa.minipar</span>
+                </div>
+                <div class="source-editor-wrap">
+                    <textarea id="source-editor" spellcheck="false" aria-label="Código-fonte MiniPar"># Escreva seu programa MiniPar aqui.
+# Você também pode carregar um exemplo na lista acima.
+
+seq {
+    var mensagem = "Olá, MINIPAR!";
+    print(mensagem);
+}</textarea>
+                </div>
+
+                <section class="compile-options" aria-labelledby="options-title">
+                    <div class="options-title-row">
+                        <h2 id="options-title">Opções de visualização</h2>
+                        <span>Selecione as etapas que deseja consultar</span>
+                    </div>
+                    <div class="options-grid">
+                        <label class="option-item"><input type="checkbox" data-view-option="tokens"> <span class="option-icon">⌕</span> Tokens</label>
+                        <label class="option-item"><input type="checkbox" data-view-option="ast"> <span class="option-icon">⑂</span> AST</label>
+                        <label class="option-item"><input type="checkbox" data-view-option="semantic"> <span class="option-icon">✓</span> Semântica</label>
+                        <label class="option-item"><input type="checkbox" data-view-option="tac" checked> <span class="option-icon">≡</span> TAC</label>
+                        <label class="option-item"><input type="checkbox" data-view-option="cpp" checked> <span class="option-icon">C</span> Código C++</label>
+                        <label class="option-item"><input type="checkbox" data-view-option="assembly"> <span class="option-icon">⌘</span> Assembly</label>
+                    </div>
+                    <p class="options-note">Nesta primeira etapa, TAC e C++ já utilizam os resultados fornecidos pelo compilador atual. As demais visualizações serão integradas nas próximas etapas.</p>
+                </section>
+            </section>
+
+            <section class="output-column panel">
+                <div class="section-heading output-heading">
+                    <div>
+                        <span class="eyebrow">ETAPAS 02–05</span>
+                        <h2>Saída da compilação</h2>
+                    </div>
+                    <span id="compile-status" class="status-pill">Aguardando compilação</span>
+                </div>
+
+                <div class="output-tabs" role="tablist" aria-label="Resultados da compilação">
+                    <button class="output-tab active" type="button" role="tab" aria-selected="true" data-output-tab="logs">Execução</button>
+                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="tac">TAC</button>
+                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="cpp">C++</button>
+                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="tokens">Tokens</button>
+                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="ast">AST</button>
+                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="semantic">Semântica</button>
+                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="assembly">Assembly</button>
+                </div>
+
+                <div class="output-panel" role="tabpanel">
+                    <div class="output-meta">
+                        <span id="output-label">LOG DE COMPILAÇÃO E EXECUÇÃO</span>
+                        <span id="output-hint">Os resultados aparecerão aqui.</span>
+                    </div>
+                    <pre id="output-content" class="output-content">Bem-vindo à segunda interface Web do MINIPAR 2026.2.
+
+1. Selecione um programa de exemplo ou escreva seu próprio código.
+2. Clique em "Compilar e executar".
+3. Consulte os resultados nas abas acima.
+
+Nesta versão inicial, as abas TAC e C++ exibem artefatos gerados pelo compilador existente.</pre>
+                </div>
+
+                <section class="download-panel">
+                    <div class="download-copy">
+                        <span class="download-icon" aria-hidden="true">⇩</span>
+                        <div>
+                            <h3>Executável gerado</h3>
+                            <p id="download-message">Compile um programa com sucesso para habilitar o download.</p>
+                        </div>
+                    </div>
+                    <button id="btn-download" class="button button-download" type="button" disabled>Baixar .exe</button>
+                </section>
+
+                <footer class="panel-footer">
+                    <span>MINIPAR — Ambiente de aprendizagem de compiladores</span>
+                    <span id="backend-state"><i></i> Aguardando ação</span>
+                </footer>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
+    <script src="{{ url_for('static', filename='js/didatica.js') }}"></script>
+</body>
+</html>
