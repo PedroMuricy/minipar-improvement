@@ -3,130 +3,360 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MINIPAR 2026.2 — Interface Didática</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/didatica.css') }}">
+    <title>MiniPar | Compilador Didático</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --surface-hover: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #38bdf8;
+            --primary-hover: #0ea5e9;
+            --accent: #22c55e;
+            --accent-hover: #16a34a;
+            --danger: #ef4444;
+            --border: #334155;
+            --font-code: "Fira Code", Consolas, Monaco, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top Header */
+        header {
+            background-color: var(--surface-color);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: -0.5px;
+        }
+
+        .badge {
+            background-color: rgba(56, 189, 248, 0.15);
+            color: var(--primary);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        select {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: #0f172a;
+        }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+
+        .btn-success {
+            background-color: var(--accent);
+            color: #0f172a;
+        }
+        .btn-success:hover { background-color: var(--accent-hover); }
+
+        /* Main Workspace */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 45% 55%;
+            overflow: hidden;
+        }
+
+        .pane {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            background-color: var(--bg-color);
+            position: relative;
+        }
+
+        .pane-header {
+            background-color: var(--surface-color);
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        textarea#codeEditor {
+            flex: 1;
+            background-color: var(--bg-color);
+            color: #e2e8f0;
+            border: none;
+            padding: 16px;
+            font-family: var(--font-code);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+        }
+
+        /* Tabs Container */
+        .tabs-header {
+            display: flex;
+            background-color: var(--surface-color);
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 10px 18px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background-color: var(--surface-hover);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background-color: rgba(56, 189, 248, 0.08);
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+            padding: 16px;
+            font-family: var(--font-code);
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Terminal Status Metrics */
+        .metric-badge {
+            display: inline-block;
+            background-color: rgba(34, 197, 94, 0.15);
+            color: var(--accent);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .error-box {
+            color: var(--danger);
+            background-color: rgba(239, 68, 68, 0.1);
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--danger);
+        }
+    </style>
 </head>
 <body>
-    <div class="didactic-app">
-        <header class="topbar">
-            <div class="brand">
-                <span class="brand-mark">M</span>
-                <div>
-                    <strong>MINIPAR <span>2026.2</span></strong>
-                    <small>Interface didática do compilador</small>
-                </div>
+
+    <header>
+        <div class="brand">
+            <h1>MiniPar IDE</h1>
+            <span class="badge">Pipeline Didático C++20</span>
+        </div>
+        <div class="controls">
+            <select id="selectExemplo" onchange="trocarExemplo()">
+                <option value="fork_join">Exemplo: Concorrência Fork / Join</option>
+                <option value="teste8_4cores">Exemplo: Teste 8 (4 Núcleos)</option>
+                <option value="baseline">Exemplo: Baseline Sequencial</option>
+            </select>
+            <button class="btn btn-primary" onclick="analisarPipeline()">
+                <span>⚙️</span> Compilar Pipeline
+            </button>
+            <button class="btn btn-success" onclick="executarCodigo()">
+                <span>▶️</span> Rodar Binário
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Painel Esquerdo: Editor -->
+        <section class="pane">
+            <div class="pane-header">
+                <span>CÓDIGO FONTE (.minipar)</span>
             </div>
-            <nav class="top-actions" aria-label="Ações principais">
-                <a class="nav-link" href="/" title="Voltar para a interface original">Interface original</a>
-                <button id="btn-clear" class="button button-quiet" type="button">Limpar</button>
-                <button id="btn-compile" class="button button-primary" type="button">
-                    <span aria-hidden="true">▶</span> Compilar e executar
-                </button>
-            </nav>
-        </header>
+            <textarea id="codeEditor" spellcheck="false"></textarea>
+        </section>
 
-        <main class="workspace">
-            <section class="source-column panel">
-                <div class="section-heading">
-                    <div>
-                        <span class="eyebrow">ETAPA 01</span>
-                        <h1>Código-fonte</h1>
-                    </div>
-                    <span class="status-dot"><i></i> Editor</span>
-                </div>
+        <!-- Painel Direito: Abas Didáticas do Compilador -->
+        <section class="pane" style="border-right: none;">
+            <div class="tabs-header">
+                <button class="tab-btn active" onclick="abrirAba(event, 'tabTokens')">1. Léxico (Tokens)</button>
+                <button class="tab-btn" onclick="abrirAba(event, 'tabAST')">2. Sintático (AST)</button>
+                <button class="tab-btn" onclick="abrirAba(event, 'tabSemantico')">3. Semântico</button>
+                <button class="tab-btn" onclick="abrirAba(event, 'tabTAC')">4. Código TAC</button>
+                <button class="tab-btn" onclick="abrirAba(event, 'tabCPP')">5. C++20 Gerado</button>
+                <button class="tab-btn" onclick="abrirAba(event, 'tabTerminal')">6. Execução & Métricas</button>
+            </div>
 
-                <label class="field-label" for="example-select">Carregar programa de exemplo</label>
-                <select id="example-select" class="example-select">
-                    <option value="">Selecione um programa...</option>
-                </select>
+            <div id="tabTokens" class="tab-content active">// Clique em 'Compilar Pipeline' para visualizar os tokens extraídos.</div>
+            <div id="tabAST" class="tab-content">// Clique em 'Compilar Pipeline' para visualizar a AST.</div>
+            <div id="tabSemantico" class="tab-content">// Validações de escopo e tipo aparecerão aqui.</div>
+            <div id="tabTAC" class="tab-content">// Código intermediário de 3 endereços (.tac).</div>
+            <div id="tabCPP" class="tab-content">// Código C++20 com std::thread gerado pelo compilador.</div>
+            <div id="tabTerminal" class="tab-content">// Clique em 'Rodar Binário' para ver a saída e o tempo de execução.</div>
+        </section>
+    </main>
 
-                <div class="editor-heading">
-                    <span>MINIPAR SOURCE CODE</span>
-                    <span id="current-file">novo_programa.minipar</span>
-                </div>
-                <div class="source-editor-wrap">
-                    <textarea id="source-editor" spellcheck="false" aria-label="Código-fonte MiniPar"># Escreva seu programa MiniPar aqui.
-# Você também pode carregar um exemplo na lista acima.
+    <script>
+        // Carrega o primeiro exemplo ao abrir
+        window.onload = function() {
+            trocarExemplo();
+        };
 
-seq {
-    var mensagem = "Olá, MINIPAR!";
-    print(mensagem);
-}</textarea>
-                </div>
+        function trocarExemplo() {
+            const nome = document.getElementById("selectExemplo").value;
+            fetch(`/api/exemplo/${nome}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById("codeEditor").value = data.codigo;
+                });
+        }
 
-                <section class="compile-options" aria-labelledby="options-title">
-                    <div class="options-title-row">
-                        <h2 id="options-title">Opções de visualização</h2>
-                        <span>Selecione as etapas que deseja consultar</span>
-                    </div>
-                    <div class="options-grid">
-                        <label class="option-item"><input type="checkbox" data-view-option="tokens"> <span class="option-icon">⌕</span> Tokens</label>
-                        <label class="option-item"><input type="checkbox" data-view-option="ast"> <span class="option-icon">⑂</span> AST</label>
-                        <label class="option-item"><input type="checkbox" data-view-option="semantic"> <span class="option-icon">✓</span> Semântica</label>
-                        <label class="option-item"><input type="checkbox" data-view-option="tac" checked> <span class="option-icon">≡</span> TAC</label>
-                        <label class="option-item"><input type="checkbox" data-view-option="cpp" checked> <span class="option-icon">C</span> Código C++</label>
-                        <label class="option-item"><input type="checkbox" data-view-option="assembly"> <span class="option-icon">⌘</span> Assembly</label>
-                    </div>
-                    <p class="options-note">Nesta primeira etapa, TAC e C++ já utilizam os resultados fornecidos pelo compilador atual. As demais visualizações serão integradas nas próximas etapas.</p>
-                </section>
-            </section>
+        function abrirAba(evt, nomeAba) {
+            const tabs = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove("active");
+            }
+            const btns = document.getElementsByClassName("tab-btn");
+            for (let i = 0; i < btns.length; i++) {
+                btns[i].classList.remove("active");
+            }
+            document.getElementById(nomeAba).classList.add("active");
+            evt.currentTarget.classList.add("active");
+        }
 
-            <section class="output-column panel">
-                <div class="section-heading output-heading">
-                    <div>
-                        <span class="eyebrow">ETAPAS 02–05</span>
-                        <h2>Saída da compilação</h2>
-                    </div>
-                    <span id="compile-status" class="status-pill">Aguardando compilação</span>
-                </div>
+        function mudarParaAba(id) {
+            const btns = document.getElementsByClassName("tab-btn");
+            for (let btn of btns) {
+                if (btn.getAttribute("onclick").includes(id)) {
+                    btn.click();
+                    break;
+                }
+            }
+        }
 
-                <div class="output-tabs" role="tablist" aria-label="Resultados da compilação">
-                    <button class="output-tab active" type="button" role="tab" aria-selected="true" data-output-tab="logs">Execução</button>
-                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="tac">TAC</button>
-                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="cpp">C++</button>
-                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="tokens">Tokens</button>
-                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="ast">AST</button>
-                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="semantic">Semântica</button>
-                    <button class="output-tab" type="button" role="tab" aria-selected="false" data-output-tab="assembly">Assembly</button>
-                </div>
+        function analisarPipeline() {
+            const codigo = document.getElementById("codeEditor").value;
+            mudarParaAba('tabTAC');
+            document.getElementById("tabTAC").textContent = "Processando fases do compilador...";
 
-                <div class="output-panel" role="tabpanel">
-                    <div class="output-meta">
-                        <span id="output-label">LOG DE COMPILAÇÃO E EXECUÇÃO</span>
-                        <span id="output-hint">Os resultados aparecerão aqui.</span>
-                    </div>
-                    <pre id="output-content" class="output-content">Bem-vindo à segunda interface Web do MINIPAR 2026.2.
+            fetch("/api/compilar", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ codigo: codigo })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.sucesso) {
+                    document.getElementById("tabTAC").innerHTML = `<div class="error-box">Erro no pipeline:\n${data.erro}</div>`;
+                    return;
+                }
+                document.getElementById("tabTokens").textContent = data.tokens;
+                document.getElementById("tabAST").textContent = data.ast;
+                document.getElementById("tabSemantico").textContent = data.semantico;
+                document.getElementById("tabTAC").textContent = data.tac;
+                document.getElementById("tabCPP").textContent = data.cpp;
+            })
+            .catch(err => {
+                document.getElementById("tabTAC").innerHTML = `<div class="error-box">Erro de conexão: ${err}</div>`;
+            });
+        }
 
-1. Selecione um programa de exemplo ou escreva seu próprio código.
-2. Clique em "Compilar e executar".
-3. Consulte os resultados nas abas acima.
+        function executarCodigo() {
+            mudarParaAba('tabTerminal');
+            document.getElementById("tabTerminal").textContent = "Compilando C++20 e executando binário nativo...";
 
-Nesta versão inicial, as abas TAC e C++ exibem artefatos gerados pelo compilador existente.</pre>
-                </div>
-
-                <section class="download-panel">
-                    <div class="download-copy">
-                        <span class="download-icon" aria-hidden="true">⇩</span>
-                        <div>
-                            <h3>Executável gerado</h3>
-                            <p id="download-message">Compile um programa com sucesso para habilitar o download.</p>
-                        </div>
-                    </div>
-                    <button id="btn-download" class="button button-download" type="button" disabled>Baixar .exe</button>
-                </section>
-
-                <footer class="panel-footer">
-                    <span>MINIPAR — Ambiente de aprendizagem de compiladores</span>
-                    <span id="backend-state"><i></i> Aguardando ação</span>
-                </footer>
-            </section>
-        </main>
-    </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
-    <script src="{{ url_for('static', filename='js/didatica.js') }}"></script>
+            fetch("/api/executar", {
+                method: "POST"
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.sucesso) {
+                    document.getElementById("tabTerminal").innerHTML = `<div class="error-box">${data.saida}</div>`;
+                    return;
+                }
+                document.getElementById("tabTerminal").innerHTML = `
+                    <div class="metric-badge">⚡ Tempo de Execução: ${data.tempo_ms} ms</div>
+                    <div>\n${data.saida}</div>
+                `;
+            })
+            .catch(err => {
+                document.getElementById("tabTerminal").innerHTML = `<div class="error-box">Erro ao executar: ${err}</div>`;
+            });
+        }
+    </script>
 </body>
 </html>

@@ -1,226 +1,413 @@
-from flask import Flask, render_template, request, jsonify
-import subprocess
 import os
 import sys
-import glob
+import time
+import subprocess
+from flask import Flask, render_template, request, jsonify, send_file
 
-from test_orchestrator import (
-    get_spec_summary,
-    finalize_test_execution,
-    check_active_session_for_new_terminal,
-    join_session,
-    get_terminal_id,
-    create_session,
-    clear_session,
-    set_session_phase,
-    append_session_log,
-    record_execution_output,
-    _load_session,
-    _save_session,
-)
+# Registra a pasta src no Python para os módulos internos se encontrarem
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
+from lexer import Lexer
+from parser import Parser
+from semantic import SemanticAnalyzer
+
+try:
+    from program_analyzer import get_program_spec
+except ImportError:
+    def get_program_spec(path):
+        return {}
 
 app = Flask(__name__)
 
-# Configuração de Diretórios
-TESTS_DIR = 'tests'
-OUTPUT_DIR = 'output'
-TEMP_DIR = 'temp_code'
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
+TEMP_CODE_DIR = os.path.join(os.path.dirname(__file__), "temp_code")
+TESTS_DIR = os.path.join(os.path.dirname(__file__), "tests")
 
-os.makedirs(TEMP_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(TEMP_CODE_DIR, exist_ok=True)
 
-@app.route('/')
+def carregar_arquivo_teste(nome_arquivo, fallback=""):
+    caminho = os.path.join(TESTS_DIR, nome_arquivo)
+    if os.path.exists(caminho):
+        with open(caminho, "r", encoding="utf-8-sig", errors="ignore") as f:
+            return f.read()
+    return fallback
+
+EXEMPLOS = {
+    "fork_join": carregar_arquivo_teste("teste_fork_join.minipar", """# Exemplo Didatico: Fork / Join
+func tarefa(id, limite) {
+    var soma = 0;
+    var i = 0;
+    while (i < limite) {
+        soma = soma + i;
+        i = i + 1;
+    }
+    print("Thread ", id, " concluida. Soma = ", soma);
+}
+
+print("Disparando threads...");
+fork tarefa(1, 5000000);
+fork tarefa(2, 5000000);
+join;
+print("Sincronizacao join concluida!");
+"""),
+    "teste8_4cores": carregar_arquivo_teste("teste8_paralelo_4cores.minipar", """# Teste 8: Paralelismo com 4 Cores
+func worker_4(id, inicio, fim) {
+    var acc = 0;
+    var i = inicio;
+    while (i < fim) {
+        acc = acc + ((i % 5) * (i % 3));
+        i = i + 1;
+    }
+    print("Worker [", id, "] finalizou fatia. Subtotal: ", acc);
+}
+
+fork worker_4(1, 0, 25000000);
+fork worker_4(2, 25000000, 50000000);
+fork worker_4(3, 50000000, 75000000);
+fork worker_4(4, 75000000, 100000000);
+join;
+print("Concluido: Todas as 4 threads finalizaram!");
+"""),
+    "baseline": carregar_arquivo_teste("teste_baseline_1core.minipar", """# Baseline Sequencial: 1 Nucleo
+func worker_seq(inicio, fim) {
+    var acc = 0;
+    var i = inicio;
+    while (i < fim) {
+        acc = acc + ((i % 5) * (i % 3));
+        i = i + 1;
+    }
+    print("Resultado sequencial: ", acc);
+}
+
+print("Iniciando Baseline em 1 nucleo...");
+worker_seq(0, 100000000);
+print("Baseline concluido!");
+""")
+}
+
+def formatar_tokens(tokens):
+    linhas = [
+        f"Total de Tokens Reconhecidos: {len(tokens)}",
+        "=" * 68,
+        f"{'#':<5} | {'TIPO DO TOKEN':<20} | {'LEXEMA (VALOR)':<25} | {'LINHA'}",
+        "-" * 68
+    ]
+    for idx, t in enumerate(tokens, 1):
+        tipo = getattr(t, "type", getattr(t, "tipo", type(t).__name__))
+        valor = getattr(t, "value", getattr(t, "valor", getattr(t, "lexeme", str(t))))
+        linha = getattr(t, "line", getattr(t, "linha", getattr(t, "lineno", "-")))
+        if str(tipo).upper() == "EOF":
+            valor = "<EOF>"
+        linhas.append(f"{idx:03d}   | {str(tipo):<20} | {repr(valor):<25} | {linha}")
+    return "\n".join(linhas)
+
+def desenhar_ast(no, prefixo="", eh_ultimo=True):
+    marcador = "└── " if eh_ultimo else "├── "
+    if no is None or isinstance(no, (str, int, float, bool)):
+        return f"{prefixo}{marcador}{repr(no)}\n"
+
+    nome_classe = no.__class__.__name__
+    atributos = getattr(no, "__dict__", {})
+    
+    simples = []
+    filhos = []
+    for chave, valor in atributos.items():
+        if chave.startswith("_"):
+            continue
+        if isinstance(valor, (str, int, float, bool)) or valor is None:
+            simples.append(f"{chave}={repr(valor)}")
+        elif isinstance(valor, list):
+            filhos.append((chave, valor))
+        elif hasattr(valor, "__dict__"):
+            filhos.append((chave, [valor]))
+
+    resumo = f" ({', '.join(simples)})" if simples else ""
+    saida = f"{prefixo}{marcador}{nome_classe}{resumo}\n"
+    novo_prefixo = prefixo + ("    " if eh_ultimo else "│   ")
+
+    for idx_f, (nome_campo, lista_itens) in enumerate(filhos):
+        ultimo_campo = (idx_f == len(filhos) - 1)
+        m_campo = "└── " if ultimo_campo else "├── "
+        saida += f"{novo_prefixo}{m_campo}[{nome_campo}]\n"
+        pref_itens = novo_prefixo + ("    " if ultimo_campo else "│   ")
+        for idx_i, item in enumerate(lista_itens):
+            saida += desenhar_ast(item, pref_itens, idx_i == len(lista_itens) - 1)
+
+    return saida
+
+def gerar_relatorio_semantico(ast_raiz, obj_semantico):
+    funcoes = []
+    variaveis = []
+    forks = []
+    joins = 0
+
+    def percorrer(no, escopo="Global"):
+        nonlocal joins
+        if no is None or not hasattr(no, "__dict__"):
+            return
+        nome_no = no.__class__.__name__
+        d = no.__dict__
+
+        if "Func" in nome_no and ("name" in d or "nome" in d):
+            nome_f = d.get("name") or d.get("nome")
+            params = d.get("params") or d.get("parametros") or []
+            funcoes.append((nome_f, params))
+            escopo = f"func:{nome_f}"
+        elif "Var" in nome_no and ("name" in d or "nome" in d):
+            nome_v = d.get("name") or d.get("nome")
+            variaveis.append((nome_v, escopo))
+        elif "Fork" in nome_no:
+            alvo = d.get("func_name") or d.get("name") or d.get("call") or "thread_worker"
+            if hasattr(alvo, "__dict__"):
+                alvo = alvo.__dict__.get("name") or alvo.__dict__.get("func_name") or str(alvo.__class__.__name__)
+            forks.append((str(alvo), escopo))
+        elif "Join" in nome_no:
+            joins += 1
+
+        for val in d.values():
+            if isinstance(val, list):
+                for item in val:
+                    percorrer(item, escopo)
+            elif hasattr(val, "__dict__"):
+                percorrer(val, escopo)
+
+    percorrer(ast_raiz)
+
+    rel = [
+        "STATUS: Análise Semântica concluída com sucesso (0 erros).",
+        "=" * 68,
+        "\n1. TABELA DE FUNÇÕES DECLARADAS:"
+    ]
+    if funcoes:
+        for f_nome, f_params in funcoes:
+            rel.append(f"   • {f_nome}({', '.join(str(p) for p in f_params)}) -> Escopo Local Criado")
+    else:
+        rel.append("   • (Nenhuma função declarada)")
+
+    rel.append("\n2. TABELA DE SÍMBOLOS (VARIÁVEIS E ESCOPOS):")
+    if variaveis:
+        for v_nome, v_esc in variaveis:
+            rel.append(f"   • Variável '{v_nome:<12}' | Escopo: {v_esc}")
+    else:
+        rel.append("   • (Nenhuma variável explícita declarada com 'var')")
+
+    rel.append("\n3. VALIDAÇÃO DE CONCORRÊNCIA (FORK / JOIN):")
+    rel.append(f"   • Disparos paralelos (fork): {len(forks)} thread(s) validada(s)")
+    for idx, (f_alvo, f_esc) in enumerate(forks, 1):
+        rel.append(f"     [{idx}] fork -> {f_alvo} (em {f_esc})")
+    rel.append(f"   • Barreiras de sincronização (join): {joins}")
+
+    return "\n".join(rel)
+
+# -----------------------------------------------------------------------------
+# ROTAS DE PÁGINAS (HTML)
+# -----------------------------------------------------------------------------
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-@app.route('/didatica')
+@app.route("/didatica")
 def didatica():
-    return render_template('didatica.html')
+    return render_template("didatica.html")
 
-@app.route('/api/tests', methods=['GET'])
-def get_tests():
-    # Retorna os testes ordenados alfabeticamente
-    tests = [os.path.basename(f) for f in glob.glob(os.path.join(TESTS_DIR, '*.minipar'))]
-    return jsonify({"tests": sorted(tests)})
+# -----------------------------------------------------------------------------
+# ROTAS DA API UTILIZADAS PELO SCRIPT.JS (INTERFACE AVANÇADA / DIDÁTICA)
+# -----------------------------------------------------------------------------
+@app.route("/api/tests", methods=["GET"])
+def listar_testes():
+    arquivos = []
+    if os.path.exists(TESTS_DIR):
+        arquivos = [f for f in os.listdir(TESTS_DIR) if f.endswith(".minipar")]
+    return jsonify({"tests": arquivos})
 
-@app.route('/api/get_test', methods=['POST'])
-def get_test():
-    filename = request.json.get('filename')
-    filepath = os.path.join(TESTS_DIR, filename)
-    if os.path.exists(filepath):
-        with open(filepath, 'r', encoding='utf-8') as f:
+@app.route("/api/get_test", methods=["POST"])
+def obter_teste():
+    dados = request.get_json() or {}
+    filename = dados.get("filename", "")
+    caminho = os.path.join(TESTS_DIR, filename)
+    if os.path.exists(caminho):
+        with open(caminho, "r", encoding="utf-8-sig", errors="ignore") as f:
             return jsonify({"code": f.read()})
     return jsonify({"error": "Arquivo não encontrado"}), 404
 
-@app.route('/api/test_spec', methods=['POST'])
-def get_test_spec_api():
-    """Requisitos detectados automaticamente pelo program_analyzer."""
-    filename = request.json.get('filename')
-    spec = get_spec_summary(filename)
-    if spec:
-        return jsonify(spec)
-    return jsonify({"requires_input": False, "multi_computer": None})
+@app.route("/api/test_spec", methods=["POST"])
+def obter_test_spec():
+    dados = request.get_json() or {}
+    filename = dados.get("filename", "")
+    caminho = os.path.join(TESTS_DIR, filename)
+    if os.path.exists(caminho):
+        return jsonify(get_program_spec(caminho))
+    return jsonify({})
 
-
-@app.route('/api/session', methods=['GET'])
-def get_session():
-    action, session = check_active_session_for_new_terminal()
-    if session:
-        return jsonify({
-            "active": session.get("status") not in ("completed", "cancelled"),
-            "session": session,
-            "terminal_id": get_terminal_id(),
-            "needs_choice": action is not None,
-        })
-    return jsonify({"active": False, "terminal_id": get_terminal_id()})
-
-
-@app.route('/api/session/join', methods=['POST'])
-def session_join():
-    _, session = check_active_session_for_new_terminal()
-    if session:
-        join_session(session)
-        return jsonify({"success": True, "session": session})
-    return jsonify({"success": False, "error": "Nenhuma sessão ativa"}), 404
-
-
-@app.route('/api/session/create', methods=['POST'])
-def session_create():
-    filename = request.json.get('filename')
-    path = os.path.join(TESTS_DIR, filename)
-    if not os.path.exists(path):
-        return jsonify({"success": False, "error": "Arquivo não encontrado"}), 404
-    from program_analyzer import get_program_spec
-    spec = get_program_spec(path)
-    if not spec.get('multi_computer'):
-        return jsonify({"success": False, "error": "Programa não requer multi-terminal"}), 400
-    session = create_session(path, spec)
-    return jsonify({"success": True, "session": session})
-
-
-@app.route('/api/session/ready', methods=['POST'])
-def session_ready():
-    session = _load_session()
-    if session:
-        session["status"] = "running"
-        _save_session(session)
-        return jsonify({"success": True})
-    return jsonify({"success": False}), 404
-
-
-@app.route('/api/session/clear', methods=['POST'])
-def session_clear():
-    clear_session()
-    return jsonify({"success": True})
-
-
-@app.route('/api/compile', methods=['POST'])
-def compile_code():
-    data = request.json
-    code = data.get('code')
-    filename = data.get('filename', 'ide_temp.minipar')
-    user_inputs = data.get('inputs', [])
+@app.route("/api/compile", methods=["POST"])
+def api_compile():
+    dados = request.get_json() or {}
+    codigo_fonte = dados.get("code") or dados.get("codigo", "")
     
-    # Salva o código recebido da IDE em um arquivo temporário
-    file_path = os.path.join(TEMP_DIR, filename)
-    with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(code)
-        
-    base_name = filename.replace('.minipar', '')
-    stdin_lines = user_inputs  # valores coletados pela IDE para input() no .minipar
-    
+    if not codigo_fonte.strip():
+        return jsonify({"success": False, "error": "O código-fonte está vazio."}), 400
+
+    caminho_minipar = os.path.join(OUTPUT_DIR, "web_temp.minipar")
+    with open(caminho_minipar, "w", encoding="utf-8") as f:
+        f.write(codigo_fonte)
+
     try:
-        set_session_phase("compiling", "Compilando código MiniPar...", percent=60)
-        append_session_log("Compilação iniciada via IDE Web.")
-        # ==========================================
-        # 1. FASE DE COMPILAÇÃO (Gera TAC e C++)
-        # ==========================================
-        process = subprocess.run(
-            ['python', 'main.py', file_path], 
-            capture_output=True, 
-            text=True, 
+        processo = subprocess.run(
+            [sys.executable, "main.py", caminho_minipar],
+            capture_output=True,
+            text=True,
             timeout=15
         )
-        
-        # Junta logs do sistema
-        full_output = process.stdout
-        if process.stderr:
-            full_output += "\n" + process.stderr
-            
-        success = process.returncode == 0
 
-        # ==========================================
-        # 2. FASE DE EXECUÇÃO (Roda o Binário C++)
-        # ==========================================
-        if success:
-            set_session_phase("compiling", "Compilação concluída.", percent=80)
-            append_session_log("Compilação concluída — executando binário.")
-            exe_ext = ".exe" if sys.platform == "win32" else ""
-            exe_path = os.path.join(OUTPUT_DIR, f"{base_name}{exe_ext}")
-            
-            if os.path.exists(exe_path):
-                full_output += f"\n--- Executando {base_name} ---\n"
-                set_session_phase("executing", f"Executando {base_name}...", percent=90)
-                try:
-                    stdin_data = None
-                    if stdin_lines:
-                        stdin_data = "\n".join(stdin_lines) + "\n"
-                    exe_proc = subprocess.run(
-                        [os.path.abspath(exe_path)], 
-                        input=stdin_data,
-                        capture_output=True, 
-                        text=True, 
-                        timeout=30
-                    )
-                    full_output += exe_proc.stdout
-                    if exe_proc.stderr:
-                        full_output += "\n[ERRO NA EXECUÇÃO]:\n" + exe_proc.stderr
-                    record_execution_output(exe_proc.stdout or "")
-                except subprocess.TimeoutExpired:
-                    full_output += "\n[ERRO] Tempo limite de execução excedido (O programa entrou em loop infinito ou aguarda entrada de dados do usuário?)."
-                    success = False
-                except Exception as e:
-                    full_output += f"\n[ERRO] Falha ao executar binário: {e}"
-                    success = False
-                
-                full_output += "\n" + "-" * 40
+        success = (processo.returncode == 0)
+        
+        tac_content = ""
+        cpp_content = ""
+        tac_path = os.path.join(OUTPUT_DIR, "web_temp.tac")
+        cpp_path = os.path.join(OUTPUT_DIR, "web_temp.cpp")
 
-                if filename.endswith('.minipar'):
-                    test_source = os.path.join(TESTS_DIR, filename)
-                    if os.path.exists(test_source):
-                        finalize_test_execution(test_source, full_output)
-        
-        # ==========================================
-        # 3. COLETA DOS ARQUIVOS GERADOS
-        # ==========================================
-        cpp_file = os.path.join(OUTPUT_DIR, f"{base_name}.cpp")
-        tac_file = os.path.join(OUTPUT_DIR, f"{base_name}.tac")
-        
-        cpp_code = ""
-        tac_code = ""
-        
-        if os.path.exists(cpp_file):
-            with open(cpp_file, 'r', encoding='utf-8') as f:
-                cpp_code = f.read()
-                
-        if os.path.exists(tac_file):
-             with open(tac_file, 'r', encoding='utf-8') as f:
-                tac_code = f.read()
-                
-        # Retorna o resultado. Se der erro, colocamos o log completo em stderr para o JS puxar
+        if os.path.exists(tac_path):
+            with open(tac_path, "r", encoding="utf-8", errors="ignore") as f:
+                tac_content = f.read()
+
+        if os.path.exists(cpp_path):
+            with open(cpp_path, "r", encoding="utf-8", errors="ignore") as f:
+                cpp_content = f.read()
+
+        stdout = processo.stdout
+        stderr = processo.stderr
+
+        # Se compilou C++, tenta rodar para capturar a saída real do programa
+        if success and os.path.exists(cpp_path):
+            exe_path = os.path.join(OUTPUT_DIR, "web_temp.exe")
+            cmd_gpp = ["g++", "-O3", "-std=c++20", cpp_path, "-o", exe_path, "-lws2_32"]
+            comp_proc = subprocess.run(cmd_gpp, capture_output=True, text=True, timeout=20)
+            if comp_proc.returncode == 0:
+                exec_proc = subprocess.run([exe_path], capture_output=True, text=True, timeout=15)
+                stdout = f"{stdout}\n--- Execução ---\n{exec_proc.stdout}"
+
         return jsonify({
-            "stdout": full_output if success else "",
-            "stderr": full_output if not success else "",
-            "cpp": cpp_code,
-            "tac": tac_code,
-            "success": success
+            "success": success,
+            "stdout": stdout,
+            "stderr": stderr,
+            "tac": tac_content,
+            "cpp": cpp_content,
+            "error": stderr if not success else None
         })
-        
-    except subprocess.TimeoutExpired:
-        return jsonify({"error": "Tempo limite do compilador excedido.", "success": False}), 500
-    except Exception as e:
-        return jsonify({"error": str(e), "success": False}), 500
 
-if __name__ == '__main__':
-    # Roda a IDE silenciosamente
-    app.run(debug=False, port=5000)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/download_executable", methods=["GET"])
+def download_executable():
+    exe_path = os.path.join(OUTPUT_DIR, "web_temp.exe")
+    if os.path.exists(exe_path):
+        return send_file(exe_path, as_attachment=True, download_name="minipar_app.exe")
+    return "Executável não encontrado. Compile primeiro.", 404
+
+# -----------------------------------------------------------------------------
+# ROTAS DA API UTILIZADAS PELO DIDATICA.JS
+# -----------------------------------------------------------------------------
+@app.route("/api/exemplo/<nome>", methods=["GET"])
+def carregar_exemplo(nome):
+    codigo = EXEMPLOS.get(nome, "# Exemplo nao encontrado")
+    return jsonify({"codigo": codigo})
+
+@app.route("/api/compilar", methods=["POST"])
+def compilar():
+    dados = request.get_json() or {}
+    codigo_fonte = dados.get("codigo") or dados.get("code", "")
+
+    if not codigo_fonte.strip():
+        return jsonify({"sucesso": False, "erro": "O código-fonte está vazio."}), 400
+
+    caminho_minipar = os.path.join(OUTPUT_DIR, "web_temp.minipar")
+    with open(caminho_minipar, "w", encoding="utf-8") as f:
+        f.write(codigo_fonte)
+
+    resultado = {
+        "sucesso": True,
+        "tokens": "",
+        "ast": "",
+        "semantico": "",
+        "tac": "",
+        "cpp": "",
+        "erro": ""
+    }
+
+    try:
+        processo = subprocess.run(
+            [sys.executable, "main.py", caminho_minipar],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if processo.returncode != 0:
+            resultado["sucesso"] = False
+            resultado["erro"] = processo.stderr or processo.stdout
+            return jsonify(resultado)
+
+        lexer = Lexer(codigo_fonte)
+        tokens = lexer.tokenize() if hasattr(lexer, "tokenize") else getattr(lexer, "tokens", [])
+        resultado["tokens"] = formatar_tokens(tokens)
+
+        parser = Parser(tokens)
+        ast_raiz = parser.parse()
+        resultado["ast"] = "ÁRVORE SINTÁTICA ABSTRATA (AST)\n" + ("=" * 68) + "\n" + desenhar_ast(ast_raiz)
+
+        sem = SemanticAnalyzer()
+        if hasattr(sem, "analyze"):
+            sem.analyze(ast_raiz)
+        resultado["semantico"] = gerar_relatorio_semantico(ast_raiz, sem)
+
+        tac_path = os.path.join(OUTPUT_DIR, "web_temp.tac")
+        cpp_path = os.path.join(OUTPUT_DIR, "web_temp.cpp")
+
+        if os.path.exists(tac_path):
+            with open(tac_path, "r", encoding="utf-8", errors="ignore") as f:
+                resultado["tac"] = f.read()
+
+        if os.path.exists(cpp_path):
+            with open(cpp_path, "r", encoding="utf-8", errors="ignore") as f:
+                resultado["cpp"] = f.read()
+
+        return jsonify(resultado)
+
+    except Exception as e:
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+
+@app.route("/api/executar", methods=["POST"])
+def executar():
+    cpp_path = os.path.join(OUTPUT_DIR, "web_temp.cpp")
+    exe_path = os.path.join(OUTPUT_DIR, "web_temp.exe")
+
+    if not os.path.exists(cpp_path):
+        return jsonify({"sucesso": False, "saida": "O arquivo C++ não foi gerado. Compile primeiro."}), 400
+
+    try:
+        cmd_gpp = ["g++", "-O3", "-std=c++20", cpp_path, "-o", exe_path, "-lws2_32"]
+        comp_proc = subprocess.run(cmd_gpp, capture_output=True, text=True, timeout=20)
+
+        if comp_proc.returncode != 0:
+            return jsonify({"sucesso": False, "saida": f"Erro de compilação C++ (g++):\n{comp_proc.stderr}"}), 400
+
+        inicio = time.perf_counter()
+        exec_proc = subprocess.run([exe_path], capture_output=True, text=True, timeout=15)
+        fim = time.perf_counter()
+
+        tempo_ms = round((fim - inicio) * 1000, 2)
+
+        return jsonify({
+            "sucesso": True,
+            "saida": exec_proc.stdout if exec_proc.stdout else "(Executado sem saídas de texto)",
+            "tempo_ms": tempo_ms
+        })
+
+    except Exception as e:
+        return jsonify({"sucesso": False, "saida": f"Falha na execução: {str(e)}"}), 500
+
+if __name__ == "__main__":
+    print("Iniciando servidor MiniPar em http://127.0.0.1:5000 ...")
+    app.run(debug=True, port=5000)
