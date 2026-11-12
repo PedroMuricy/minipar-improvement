@@ -1,0 +1,5 @@
+==== Ordenação com Quicksort ====
+Insira os elementos do vetor separados por espaço:
+10 -3 -40 80 70 -100
+Vetor original: [10, -3, -40, 80, 70, -100]
+Vetor ordenado: [-100, -40, -3, 10, 70, 80]

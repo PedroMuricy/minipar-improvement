@@ -1,0 +1,32 @@
+# Teste 8: Paralelismo com 4 Cores (Fork/Join)
+# MiniPar 2026.2
+
+func worker_4(id, inicio, fim) {
+    var acc = 0;
+    var i = inicio;
+    while (i < fim) {
+        acc = acc + ((i % 5) * (i % 3));
+        i = i + 1;
+    }
+    print("Worker [", id, "] finalizou fatia ", inicio, " a ", fim, ". Subtotal: ", acc);
+}
+
+print("==================================================");
+print("TESTE 8: Execucao Paralela em 4 Cores (Fork/Join)");
+print("==================================================");
+
+var total = 100000000;
+var chunk = 25000000;
+
+print("Disparando 4 tarefas concorrentes...");
+
+fork worker_4(1, 0, 25000000);
+fork worker_4(2, 25000000, 50000000);
+fork worker_4(3, 50000000, 75000000);
+fork worker_4(4, 75000000, 100000000);
+
+print("Sincronizando tarefas na barreira join...");
+join;
+
+print("Concluido: Todas as 4 threads finalizaram!");
+print("==================================================");

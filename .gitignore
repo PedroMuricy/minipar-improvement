@@ -1,0 +1,7 @@
+output/
+*.exe
+__pycache__/
+
+.venv/
+*.pyc
+.env

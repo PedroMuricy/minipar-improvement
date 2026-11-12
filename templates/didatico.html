@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minipar · Passo a passo</title><link rel="stylesheet" href="/static/css/didatico.css"></head>
+<body>
+<header><div><h1>Minipar <small>passo a passo</small></h1><p>Veja como seu código vira um programa, uma etapa de cada vez.</p></div><a href="/">Abrir a IDE completa →</a></header>
+<ol id="steps"></ol>
+<main>
+  <section class="card src">
+    <div class="bar"><select id="examples"><option value="">Carregar exemplo…</option></select>
+      <label class="btn">Abrir arquivo<input id="file" type="file" accept=".minipar,.txt" hidden></label><button id="clear" class="btn">Limpar</button></div>
+    <textarea id="src" spellcheck="false" placeholder="Digite ou carregue um código Minipar…"></textarea>
+  </section>
+  <section class="card stage">
+    <h2 id="q"></h2><p id="why"></p><div id="viz"></div>
+    <div class="nav"><button id="prev" class="btn">← Anterior</button><span id="pos"></span><button id="next" class="btn pri">Próxima etapa →</button></div>
+  </section>
+</main>
+<script src="/static/js/didatico.js"></script>
+</body></html>

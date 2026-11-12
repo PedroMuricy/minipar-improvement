@@ -1,0 +1,45 @@
+Requisitos:
+ - Consultar o Projeto-Compilador (Orientado a Objetos)-MiniPar2026.2-com Testes solicitados e Nova Segunda Interface Web
+
+- A Nova Segunda Interface Web do compilador (será a segunda interface Web do MiniPar2026.2), as duas devem ser mantidas, a segunda interface Web deve ser mais didática (alunos iniciantes) e a primeira
+
+interface Web  que foi implementada em 2026.1 é destinada ao desenvolvedor. De fato o Minipar 2026.2 deve manter as duas interfaces (terminal e Web) do Minipar 2026.1 e acrescentar a segunda  interface Web com finalidades didaticas.
+
+Consultar essa tela no Projeto MiniPar2026-2 (também ver o Relatório do MiniPar2025.1 - em Anexo) que
+apresenta o editor do programa MiniPar com as opções seguintes de compilação:
+
+Exibir:
+
+Tokens - Lexer (botão),
+
+AST - Analise Sintatica (botão),
+
+Análise Semântica (botão),
+
+TAC - Geração de Código 3 endereços  (botão) ,
+
+código C++ gerado  (botão) .
+
+Compilar e baixar o executável (botão)
+
+Executar (botão)
+
+
+
+Melhorar a forma de representar visualmente das informações de cada opção, deve ser a melhor possível,  clara e não poluida demais a interface, de forma clara e didatica, particularmente a forma de representar a arvore AST deve se melhorar muito em relação a Interface Web do MiniPar2025.1 e a interface Web do MiniPar2026.1
+
+
+
+Testes 8, 9, 10 (algoritmos paralelos usando Fork e Join)
+  - Código em python (algoritmos paralelos utilizando as instruções
+
+Fork (tarefa principal é dividida recursivamente em duas ou mais subtarefas independentes para serem executada em paralelo) e
+Join (A thread principal ou pai aguarda a conclusão das subtarefas para as quais deu origem   - coleta e junção do trabalho de cada subtarefa)  que devem ser acrescentadas a Gramática do Minipar 2026.2
+
+Importante:
+A alocação de uma subtarefa a serem executada via o Fork pode ser para um Núcleo da CPU ou para um Computador diferente.
+
+
+BNF - Linguagem MIniPar 2026.2 (arquivo .md) - também a BNF pode ser consultada no link do githhub do Minipar 2026.1
+
+Elementos de Implementação usando Componentes de Software (essa modelagem deve ser atualizada no Contexto do Compilador 2026.2)

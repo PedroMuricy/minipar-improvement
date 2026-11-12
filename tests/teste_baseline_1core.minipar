@@ -1,0 +1,16 @@
+﻿# Baseline Sequencial: 1 Core
+# MiniPar 2026.2
+
+func worker_seq(inicio, fim) {
+    var acc = 0;
+    var i = inicio;
+    while (i < fim) {
+        acc = acc + ((i % 5) * (i % 3));
+        i = i + 1;
+    }
+    print("Worker sequencial finalizou. Subtotal: ", acc);
+}
+
+print("=== BASELINE SEQUENCIAL: 1 Core ===");
+worker_seq(0, 100000000);
+print("Concluido!");
