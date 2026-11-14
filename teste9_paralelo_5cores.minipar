@@ -1,0 +1,147 @@
+# Teste 9 - MiniPar 2026.2 (5 Nucleos com Mandelbrot e Benchmark Real)
+
+func simular_carga(seed, iteracoes) {
+    var acc = seed;
+    var i = 0;
+    while (i < iteracoes) {
+        acc = acc + ((i % 7) * (i % 3));
+        i = i + 1;
+    }
+    return acc;
+}
+
+func trabalhador_avaliacao(id_avaliador, qtd_atividades) {
+    var k = 1;
+    var check = 0;
+    while (k <= qtd_atividades) {
+        check = simular_carga(check, 15000000);
+        k = k + 1;
+    }
+    print("[Nucleo ", id_avaliador, "] Concluiu ", qtd_atividades, " avaliacoes (Checksum: ", check, ")");
+}
+
+func trabalhador_fractal(imprimir) {
+    var check_f = simular_carga(0, 200000000);
+    var largura = 35;
+    var altura = 18;
+    var max_iter = 100;
+
+    if (imprimir == 1) {
+        print("");
+        print("=== FRACTAL DE MANDELBROT (Gerado pelo Nucleo 5) ===");
+    }
+
+    var y = 0;
+    while (y < altura) {
+        var c0 = " "; var c1 = " "; var c2 = " "; var c3 = " "; var c4 = " ";
+        var c5 = " "; var c6 = " "; var c7 = " "; var c8 = " "; var c9 = " ";
+        var c10 = " "; var c11 = " "; var c12 = " "; var c13 = " "; var c14 = " ";
+        var c15 = " "; var c16 = " "; var c17 = " "; var c18 = " "; var c19 = " ";
+        var c20 = " "; var c21 = " "; var c22 = " "; var c23 = " "; var c24 = " ";
+        var c25 = " "; var c26 = " "; var c27 = " "; var c28 = " "; var c29 = " ";
+        var c30 = " "; var c31 = " "; var c32 = " "; var c33 = " "; var c34 = " ";
+
+        var cy = (y / 18.0) * 2.4 - 1.2;
+        var x = 0;
+
+        while (x < largura) {
+            var cx = (x / 35.0) * 3.0 - 2.0;
+            var zx = 0.0;
+            var zy = 0.0;
+            var iteracao = 0;
+
+            while (zx * zx + zy * zy <= 4.0 && iteracao < max_iter) {
+                var tmp = zx * zx - zy * zy + cx;
+                zy = 2.0 * zx * zy + cy;
+                zx = tmp;
+                iteracao = iteracao + 1;
+            }
+
+            var ch = " ";
+            if (iteracao == max_iter) { ch = "@"; }
+            else {
+                if (iteracao > 50) { ch = "%"; }
+                else {
+                    if (iteracao > 20) { ch = "#"; }
+                    else {
+                        if (iteracao > 10) { ch = "+"; }
+                        else {
+                            if (iteracao > 5) { ch = "="; }
+                            else {
+                                if (iteracao > 2) { ch = ":"; }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (x == 0) { c0 = ch; }   if (x == 1) { c1 = ch; }   if (x == 2) { c2 = ch; }
+            if (x == 3) { c3 = ch; }   if (x == 4) { c4 = ch; }   if (x == 5) { c5 = ch; }
+            if (x == 6) { c6 = ch; }   if (x == 7) { c7 = ch; }   if (x == 8) { c8 = ch; }
+            if (x == 9) { c9 = ch; }   if (x == 10) { c10 = ch; } if (x == 11) { c11 = ch; }
+            if (x == 12) { c12 = ch; } if (x == 13) { c13 = ch; } if (x == 14) { c14 = ch; }
+            if (x == 15) { c15 = ch; } if (x == 16) { c16 = ch; } if (x == 17) { c17 = ch; }
+            if (x == 18) { c18 = ch; } if (x == 19) { c19 = ch; } if (x == 20) { c20 = ch; }
+            if (x == 21) { c21 = ch; } if (x == 22) { c22 = ch; } if (x == 23) { c23 = ch; }
+            if (x == 24) { c24 = ch; } if (x == 25) { c25 = ch; } if (x == 26) { c26 = ch; }
+            if (x == 27) { c27 = ch; } if (x == 28) { c28 = ch; } if (x == 29) { c29 = ch; }
+            if (x == 30) { c30 = ch; } if (x == 31) { c31 = ch; } if (x == 32) { c32 = ch; }
+            if (x == 33) { c33 = ch; } if (x == 34) { c34 = ch; }
+
+            x = x + 1;
+        }
+
+        if (imprimir == 1) {
+            print(c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30, c31, c32, c33, c34);
+        }
+        y = y + 1;
+    }
+
+    if (imprimir == 1) {
+        print("==================================================== (Check: ", check_f, ")");
+        print("");
+    }
+}
+
+print("Carga de Trabalho: 160 atividades + 1 Calculo de Fractal ASCII");
+print("");
+
+print("--- 1. Executando Modo Sequencial (Apenas 1 Nucleo) ---");
+var inicio_seq = tempo();
+var atv_seq = 1;
+var check_seq = 0;
+while (atv_seq <= 160) {
+    check_seq = simular_carga(check_seq, 15000000);
+    atv_seq = atv_seq + 1;
+}
+trabalhador_fractal(0);
+var fim_seq = tempo();
+var tempo_seq = fim_seq - inicio_seq;
+print("Tempo Sequencial Concluido em: ", tempo_seq, " segundos (Check: ", check_seq, ")");
+print("");
+
+print("--- 2. Executando Modo Paralelo (5 Nucleos Dedicados) ---");
+var inicio_par = tempo();
+fork trabalhador_avaliacao(1, 40);
+fork trabalhador_avaliacao(2, 40);
+fork trabalhador_avaliacao(3, 40);
+fork trabalhador_avaliacao(4, 40);
+fork trabalhador_fractal(1);
+join;
+var fim_par = tempo();
+var tempo_par = fim_par - inicio_par;
+print("Tempo Paralelo Concluido em:   ", tempo_par, " segundos");
+print("");
+
+var speedup = tempo_seq / tempo_par;
+var reducao_pct = ((tempo_seq - tempo_par) / tempo_seq) * 100;
+
+print("==========================================");
+print("         BENCHMARK DE DESEMPENHO          ");
+print("==========================================");
+print("Nucleos Utilizados (Paralelo) : 5");
+print("Tempo Sequencial             : ", tempo_seq, " s");
+print("Tempo Paralelo               : ", tempo_par, " s");
+print("Aceleracao (Speedup)         : ", speedup, "x mais rapido!");
+print("Reducao de Tempo             : ", reducao_pct, "%");
+print("==========================================");

@@ -1,0 +1,62 @@
+# Teste 8 - MiniPar 2026.2 (4 Nucleos com Benchmark Real via std::chrono)
+
+func simular_correcao(seed, iteracoes) {
+    var acc = seed;
+    var i = 0;
+    while (i < iteracoes) {
+        acc = acc + ((i % 5) * (i % 3));
+        i = i + 1;
+    }
+    return acc;
+}
+
+func trabalhador_nucleo(avaliador, id_nucleo, inicio_atv, fim_atv) {
+    var atv = inicio_atv;
+    var checksum = 0;
+    while (atv <= fim_atv) {
+        checksum = simular_correcao(checksum, 15000000);
+        atv = atv + 1;
+    }
+    print("[Nucleo ", id_nucleo, " - ", avaliador, "] Concluiu atividades ", inicio_atv, " a ", fim_atv, " (Checksum: ", checksum, ")");
+}
+
+print("Total de Atividades a Avaliar: 160 (40 alunos x 4 atividades)");
+print("");
+
+print("--- 1. Executando Modo Sequencial (Apenas 1 Nucleo / Professor) ---");
+var inicio_seq = tempo();
+var atv_seq = 1;
+var check_seq = 0;
+while (atv_seq <= 160) {
+    check_seq = simular_correcao(check_seq, 15000000);
+    atv_seq = atv_seq + 1;
+}
+var fim_seq = tempo();
+var tempo_seq = fim_seq - inicio_seq;
+print("Tempo Sequencial Concluido em: ", tempo_seq, " segundos (Check: ", check_seq, ")");
+print("");
+
+print("--- 2. Executando Modo Paralelo (4 Nucleos Dedicados: Professor + 3 Monitores) ---");
+var inicio_par = tempo();
+fork trabalhador_nucleo("Professor", 1, 1, 40);
+fork trabalhador_nucleo("Monitor 1", 2, 41, 80);
+fork trabalhador_nucleo("Monitor 2", 3, 81, 120);
+fork trabalhador_nucleo("Monitor 3", 4, 121, 160);
+join;
+var fim_par = tempo();
+var tempo_par = fim_par - inicio_par;
+print("Tempo Paralelo Concluido em:   ", tempo_par, " segundos");
+print("");
+
+var speedup = tempo_seq / tempo_par;
+var reducao_pct = ((tempo_seq - tempo_par) / tempo_seq) * 100;
+
+print("==========================================");
+print("         BENCHMARK DE DESEMPENHO          ");
+print("==========================================");
+print("Nucleos Utilizados (Paralelo) : 4");
+print("Tempo Sequencial             : ", tempo_seq, " s");
+print("Tempo Paralelo               : ", tempo_par, " s");
+print("Aceleracao (Speedup)         : ", speedup, "x mais rapido!");
+print("Reducao de Tempo             : ", reducao_pct, "%");
+print("==========================================");
