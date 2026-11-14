@@ -25,7 +25,7 @@ O projeto amplia a versão anterior da linguagem com suporte a **programação p
 - GCC
 - `std::thread`
 
-## Como executar
+## Como Executar
 
 Instale as dependências:
 
