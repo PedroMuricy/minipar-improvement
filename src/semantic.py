@@ -82,7 +82,7 @@ class SemanticAnalyzer:
         if isinstance(node, MethodCall):
             return "unknown"
         if isinstance(node, FuncCallExpr):
-            if node.name in ("random", "exp"): return "number"
+            if node.name in ("random", "exp", "tempo"): return "number"
             if node.name in ("range", "parse_ints"): return "list"
             return "unknown"
         if isinstance(node, IndexExpr): return "unknown"
@@ -220,7 +220,7 @@ class SemanticAnalyzer:
             self.validate_node(node.object)
             for arg in node.arguments: self.validate_node(arg)
         elif isinstance(node, FuncCallExpr):
-            if node.name not in self._functions and node.name not in ("exp", "random", "range", "len", "to_number", "parse_ints"):
+            if node.name not in self._functions and node.name not in ("exp", "random", "tempo", "range", "len", "to_number", "parse_ints"):
                 self._report(node.line, f"Funcao '{node.name}' nao declarada.")
             elif node.name in self._functions and len(self._functions[node.name].params) != len(node.arguments):
                 self._report(node.line, f"Funcao '{node.name}' espera {len(self._functions[node.name].params)} argumento(s), recebeu {len(node.arguments)}.")

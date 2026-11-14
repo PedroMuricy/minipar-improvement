@@ -26,6 +26,12 @@ _CPP_HEADER = """\
 // Helper para Random nativo
 double random_val() { return (double)rand() / RAND_MAX; }
 
+// Helper para Tempo nativo (retorna segundos reais do SO)
+double tempo() {
+    using namespace std::chrono;
+    return duration<double>(steady_clock::now().time_since_epoch()).count();
+}
+
 // Helper para Input
 std::string input() {
     std::string s;
